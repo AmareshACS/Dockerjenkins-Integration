@@ -1,0 +1,31 @@
+node{
+    
+    def buildNumber = BUILD_NUMBER
+    stage("Git Clone"){
+        git url: 'https://github.com/AmareshACS/java-web-app-docker-master.git', branch: 'master'
+    }
+    stage("Maven Clean Package"){
+        def mavenHome= tool name: "Maven", type: "maven"
+         sh "${mavenHome}/bin/mvn clean package"
+    }
+    stage("Build Docker Image"){
+        sh "docker build -t amareshdockerhub/java-web-app-docker:${buildNumber} ."
+    }
+    stage("Docker Login and Push"){
+        withCredentials([string(credentialsId: 'DockerHubPassword', variable: 'DockerHubPassword')]) {
+            sh "docker login -u amareshdockerhub -p ${DockerHubPassword}"
+        }
+        sh "docker push amareshdockerhub/java-web-app-docker:${buildNumber}"
+    }
+    stage("Deploy Application As Docker Container"){
+        sshagent(['Docker_Server_SSH']) {
+            sh "ssh -o StrictHostKeyChecking=no ubuntu@172.31.90.30 docker rm -f javawebappcontainer || true"
+            sh "ssh -o StrictHostKeyChecking=no ubuntu@172.31.90.30 docker run -d -p 8080:8080 --name javawebappcontainer amareshdockerhub/java-web-app-docker:${buildNumber}"
+        }
+    }
+}
+
+
+
+
+
